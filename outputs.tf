@@ -72,6 +72,12 @@ output "users" {
   value       = aws_iam_user.users
 }
 
+output "access_keys" {
+  description = "Created IAM users access keys"
+  value       = aws_iam_access_key.access_key
+  sensitive = true
+}
+
 output "user_policy_attachments" {
   description = "Attached user customer managed IAM policies"
   value       = aws_iam_user_policy_attachment.policy_attachments
