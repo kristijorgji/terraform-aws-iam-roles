@@ -1,14 +1,4 @@
 # -------------------------------------------------------------------------------------------------
-# Set module requirements
-# -------------------------------------------------------------------------------------------------
-
-terraform {
-  # >= v0.12.6
-  required_version = ">= 0.12.6"
-}
-
-
-# -------------------------------------------------------------------------------------------------
 # 1. Account Settings
 # -------------------------------------------------------------------------------------------------
 
@@ -143,7 +133,9 @@ resource "aws_iam_user" "users" {
   permissions_boundary = each.value.permissions_boundary
 
   tags = merge(
-    map("Name", lookup(each.value, "name")),
+    {
+      Name = lookup(each.value, "name")
+    },
     var.tags
   )
 }
@@ -232,7 +224,7 @@ resource "aws_iam_role" "roles" {
   description = lookup(each.value, "desc", null) == null ? var.role_desc : lookup(each.value, "desc")
 
   # This policy defines who/what is allowed to use the current role
-  assume_role_policy = file(lookup(each.value, "trust_policy_file"))
+  assume_role_policy = lookup(each.value, "trust_policy_vars") == null ? file(lookup(each.value, "trust_policy_file")) : templatefile(lookup(each.value, "trust_policy_file"), lookup(each.value, "trust_policy_vars"))
 
   # The boundary defines the maximum allowed permissions which cannot exceed.
   # Even if the policy has higher permission, the boundary sets the final limit
@@ -243,7 +235,9 @@ resource "aws_iam_role" "roles" {
   force_detach_policies = var.role_force_detach_policies
 
   tags = merge(
-    map("Name", lookup(each.value, "name")),
+    {
+      Name = lookup(each.value, "name")
+    },
     var.tags
   )
 }
@@ -287,4 +281,24 @@ resource "aws_iam_role_policy" "inline_policy_attachments" {
   # Terraform has no info that aws_iam_roles must be run first in order to create the roles,
   # so we must explicitly tell it.
   depends_on = [aws_iam_role.roles]
+}
+
+# -------------------------------------------------------------------------------------------------
+# 7. Instance profiles
+# -------------------------------------------------------------------------------------------------
+
+# Create roles
+resource "aws_iam_instance_profile" "profiles" {
+  for_each = { for role in var.roles : role.name => role if role.instance_profile != null }
+
+  name = lookup(each.value, "instance_profile")
+  path = lookup(each.value, "path", null) == null ? var.role_path : lookup(each.value, "path")
+  role = lookup(each.value, "name")
+
+  tags = merge(
+    {
+      Name = lookup(each.value, "name")
+    },
+    var.tags
+  )
 }
